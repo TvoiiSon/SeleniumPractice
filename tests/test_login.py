@@ -1,11 +1,14 @@
 import pytest
 import allure
-from playwright.sync_api import Page, expect
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from loguru import logger
+from config import BASE_URL
 from pages.login_page import LoginPage
 from pages.register_page import RegisterPage
 from pages.header_component import HeaderComponent
 from models.user import User, UserLoginAPIResponse
-from loguru import logger
 
 class TestLoginPage():
     @allure.epic("NewsPlatform")
@@ -16,14 +19,14 @@ class TestLoginPage():
     @allure.tag("Позитивный")
     @pytest.mark.smoke
     @pytest.mark.ui
-    def test_valid_login(self, page: Page):
-        login_page = LoginPage(page)
+    def test_valid_login(self, driver: webdriver.Firefox):
+        login_page = LoginPage(driver)
         login_page.open()
 
         login_page.login("test@example.com", "password123")
 
-        expect(login_page.header.avatar_button, message="Аватар не появился в шапке — авторизация не прошла успешно").to_be_visible()
-        assert page.evaluate("localStorage.getItem('token')"), "Токен не сохранился в localStorage после успешной авторизации"
+        assert login_page.header.avatar_button.wait_until_visible(), "Аватар не появился после авторизации"
+        assert driver.execute_script("return localStorage.getItem('token')"), "Токен не сохранился в localStorage после авторизации"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Аутентификация")
@@ -32,9 +35,9 @@ class TestLoginPage():
     @allure.severity(allure.severity_level.NORMAL)
     @allure.tag("Позитивный")
     @pytest.mark.api
-    def test_valid_answer_me_api(self, authenticated_page: Page):
+    def test_valid_answer_me_api(self, authenticated_page: webdriver.Firefox):
         with allure.step("Запрос /api/users/me с Bearer-токеном — проверка схемы через Pydantic-модель User"):
-            token = authenticated_page.evaluate("localStorage.getItem('token')")
+            token = authenticated_page.execute_script("return localStorage.getItem('token')")
 
             logger.info("Запрос /api/users/me с Bearer-токеном — проверка схемы через Pydantic-модель User")
             request = authenticated_page.request.get("https://archiscope.ru/api/users/me", headers={'Authorization': f'Bearer {token}'}).json()
@@ -47,10 +50,10 @@ class TestLoginPage():
     @allure.severity(allure.severity_level.NORMAL)
     @allure.tag("Позитивный")
     @pytest.mark.api
-    def test_valid_answer_login_api(self, page: Page):
+    def test_valid_answer_login_api(self, driver: webdriver.Firefox):
         with allure.step("Запрос POST /api/auth/login напрямую, username: test@example.com — проверка статуса и схемы ответа"):
             logger.info("Запрос POST /api/auth/login напрямую, username: test@example.com — проверка статуса и схемы ответа")
-            request = page.request.post(url="https://archiscope.ru/api/auth/login", multipart={"username": "test@example.com", "password": "password123"})
+            request = driver.request.post(url="https://archiscope.ru/api/auth/login", form={"username": "test@example.com", "password": "password123"})
             assert request.status == 200, f"Ожидали статус 200, получили {request.status}"
             request = request.json()
             assert UserLoginAPIResponse(**request)
@@ -63,11 +66,11 @@ class TestLoginPage():
     @allure.tag("Негативный")
     @pytest.mark.regression
     @pytest.mark.ui
-    def test_invalid_login(self, page: Page):
-        login_page = LoginPage(page)
+    def test_invalid_login(self, driver: webdriver.Firefox):
+        login_page = LoginPage(driver)
         login_page.open()
         login_page.login("wrong@example.com", "wpassword")
-        expect(page.get_by_text("Incorrect email or password"), message="Сообщение об ошибке неверных учётных данных не появилось").to_be_visible()
+        assert login_page.error_message.wait_until_visible(), "Сообщение об ошибке неверных учётных данных не появилось"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Аутентификация")
@@ -78,8 +81,8 @@ class TestLoginPage():
     @pytest.mark.parametrize("empty_field", ["email", "password"])
     @pytest.mark.regression
     @pytest.mark.ui
-    def test_empty_fields_login(self, page: Page, empty_field):
-        login_page = LoginPage(page)
+    def test_empty_fields_login(self, driver: webdriver.Firefox, empty_field):
+        login_page = LoginPage(driver)
         login_page.open()
 
         if empty_field == "email":
@@ -87,7 +90,7 @@ class TestLoginPage():
         elif empty_field == "password":
             login_page.login("test@example.com", "")
 
-        validate_locator = getattr(login_page, f"{empty_field}_input")
+        validate_locator = getattr(login_page, f"{empty_field}_input").locator
         assert login_page.is_field_required(validate_locator), f"Поле {empty_field} является обязательным для заполнения"
 
     @allure.epic("NewsPlatform")
@@ -98,10 +101,10 @@ class TestLoginPage():
     @allure.tag("Позитивный")
     @pytest.mark.regression
     @pytest.mark.ui
-    def test_logout(self, authenticated_page: Page):
+    def test_logout(self, authenticated_page: webdriver.Firefox):
         header_component = HeaderComponent(authenticated_page)
         header_component.logout()
-        assert authenticated_page.evaluate("localStorage.getItem('token')") is None, "Токен остался в localStorage после выхода из аккаунта"
+        assert authenticated_page.execute_script("return localStorage.getItem('token')") is None, "Токен остался в localStorage после выхода из аккаунта"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Аутентификация")
@@ -111,9 +114,9 @@ class TestLoginPage():
     @allure.tag("Позитивный")
     @pytest.mark.regression
     @pytest.mark.ui
-    def test_go_to_register(self, page: Page):
-        login_page = LoginPage(page)
+    def test_go_to_register(self, driver: webdriver.Firefox):
+        login_page = LoginPage(driver)
         login_page.open()
 
         login_page.go_to_register()
-        expect(page, message="Переход по ссылке на страницу регистрации не произошёл").to_have_url(RegisterPage.URL)
+        assert WebDriverWait(driver, 10).until(EC.url_to_be(BASE_URL + "/register")), "URL не изменился на /register после авторизации"
