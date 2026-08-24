@@ -1,6 +1,8 @@
 import pytest
 import allure
-from playwright.sync_api import Page, expect
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from pages.article_page import ArticlePage
 from models.article import Comment
 from helpers.data_generator import generate_comment
@@ -19,7 +21,7 @@ class TestArticle():
         comment = generate_comment()
         go_to_article_page.add_comment(comment)
 
-        expect(go_to_article_page.page.locator("p").get_by_text(comment), message="Ожидали добавление комментария к новости, но комментарий не добавился").to_be_visible()
+        assert go_to_article_page.comment.get_by_text(comment, global_search=True, exact=True).wait_until_visible(), "Ожидали добавление комментария к новости, но комментарий не добавился"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Детальная страница новости")
@@ -31,7 +33,7 @@ class TestArticle():
     @pytest.mark.ui
     def test_incorrect_create_comment(self, go_to_article_page: ArticlePage):
         go_to_article_page.add_comment("")
-        assert go_to_article_page.is_field_required(go_to_article_page.comment_input), "Поле для содержимого комментария является обязательным для заполнения"
+        assert go_to_article_page.is_field_required(go_to_article_page.comment_input.locator), "Поле для содержимого комментария является обязательным для заполнения"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Детальная страница новости")
@@ -40,10 +42,10 @@ class TestArticle():
     @allure.severity(allure.severity_level.CRITICAL)
     @allure.tag("Негативный")
     @pytest.mark.api
-    def test_pii_article_id_returns(self, page: Page):
+    def test_pii_article_id_returns(self, driver: webdriver.Firefox):
         with allure.step("Запрос комментариев статьи id=39 — проверка отсутствия email/phone автора в ответе"):
             logger.info("Запрос комментариев статьи id=39 — проверка отсутствия email/phone автора в ответе")
-            request = page.request.get("https://archiscope.ru/api/news/39/comments").json()
+            request = driver.request.get("https://archiscope.ru/api/news/39/comments").json()
 
             for item in request:
                 assert "email" not in item["author"] and "phone" not in item["author"], "Утечка полей email и phone на странице новости"
@@ -55,10 +57,10 @@ class TestArticle():
     @allure.severity(allure.severity_level.NORMAL)
     @allure.tag("Позитивный")
     @pytest.mark.api
-    def test_valid_article_id_returns(self, page: Page):
+    def test_valid_article_id_returns(self, driver: webdriver.Firefox):
         with allure.step("Запрос комментариев статьи id=39 — проверка схемы через Pydantic-модель Comment"):
             logger.info("Запрос комментариев статьи id=39 — проверка схемы через Pydantic-модель Comment")
-            request = page.request.get("https://archiscope.ru/api/news/39/comments").json()
+            request = driver.request.get("https://archiscope.ru/api/news/39/comments").json()
             for item in request:
                 assert Comment(**item)
 
@@ -70,8 +72,8 @@ class TestArticle():
     @allure.tag("Негативный")
     @pytest.mark.parametrize("article_id", [-1, 0, 9999])
     @pytest.mark.api
-    def test_invalid_article_id_returns_404(self, page: Page, article_id):
+    def test_invalid_article_id_returns_404(self, driver: webdriver.Firefox, article_id):
         with allure.step(f"Запрос комментариев несуществующей статьи id={article_id} — ожидаем 404"):
             logger.info(f"Запрос комментариев несуществующей статьи id={article_id} — ожидаем 404")
-            request = page.request.get(f"https://archiscope.ru/api/news/{article_id}/comments")
+            request = driver.request.get(f"https://archiscope.ru/api/news/{article_id}/comments")
             assert request.status == 404, f"Ожидали получить статус 404, получили {request.status}"

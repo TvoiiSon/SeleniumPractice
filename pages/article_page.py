@@ -9,10 +9,10 @@ class ArticlePage(BasePage):
     def __init__(self, driver: webdriver.Firefox, title: str):
         super().__init__(driver)
         self.title = title
-        self.comment_input = LazyElement(driver, (By.XPATH, "//textarea[@placeholder='Оставьте комментарий']"))
+        self.comment_input = LazyElement(driver, (By.XPATH, "//textarea[contains(@placeholder, 'Оставьте комментарий')]"))
         self.submit_comment_button = LazyElement(driver, (By.XPATH, "//button[text()='Отправить']"))
         self.heading = LazyElement(driver, (By.XPATH, f"//h1[text()='{title}']"))
-
+        self.comment = LazyElement(driver, (By.XPATH, "//div[@class='space-y-4']"))
     @allure.step("Создание комментария: {text}")
     def add_comment(self, text: str):
         self.comment_input.fill(text)
