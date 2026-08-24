@@ -68,6 +68,26 @@ class LazyElement():
 
         return LazyElement(driver=self._driver_factory, locator=_find_within_parent)
 
+    def get_by_alt_text(self, text: str, global_search: bool = False, exact: bool = False) -> "LazyElement":
+            if global_search:
+                if exact:
+                    xpath = f"//*[@alt='{text}']"
+                else:
+                    xpath = f"//*[contains(@alt, '{text}')]"
+    
+                return LazyElement(driver=self._driver_factory, locator=(By.XPATH, xpath))
+    
+            if exact:
+                xpath = f".//*[@alt='{text}']"
+            else:
+                xpath = f".//*[contains(@alt, '{text}')]"
+            
+            def _find_within_parent(driver):
+                parent = self._resolve_element(EC.presence_of_element_located)
+                return parent.find_element(By.XPATH, xpath)
+    
+            return LazyElement(driver=self._driver_factory, locator=_find_within_parent)
+    
     def evaluate(self, js_script: str, timeout: int = 10):
         element = self._resolve_element(EC.presence_of_element_located, timeout)
         return self.driver.execute_script(js_script, element)

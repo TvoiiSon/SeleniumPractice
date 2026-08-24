@@ -18,6 +18,7 @@ class ProfilePage(BasePage):
         self.password_input = LazyElement(driver, (By.CSS_SELECTOR, 'input[name="password"]'))
         self.image_input = LazyElement(driver, (By.CSS_SELECTOR, 'input[type="file"]'))
         self.save_button = LazyElement(driver, (By.XPATH, "//button[text()='Сохранить']"))
+        self.success_update = LazyElement(driver, (By.XPATH, "//div[text()='Профиль обновлён']"))
 
     def open(self):
         self.driver.get(self.URL)

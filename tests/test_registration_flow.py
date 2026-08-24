@@ -1,7 +1,9 @@
 import pytest
 import allure
 from config import BASE_URL
-from playwright.sync_api import Page, expect
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from pages.register_page import RegisterPage
 from pages.login_page import LoginPage
 from helpers.data_generator import generate_user
@@ -15,17 +17,17 @@ class TestRegistrationFlow:
     @allure.tag("Позитивный")
     @pytest.mark.regression
     @pytest.mark.ui
-    def test_flow_register_login(self, page: Page):
-        login_page = LoginPage(page)
-        register_page = RegisterPage(page)
+    def test_flow_register_login(self, driver: webdriver.Firefox):
+        login_page = LoginPage(driver)
+        register_page = RegisterPage(driver)
 
         register_page.open()
 
         user = generate_user()
         register_page.register(**user)
 
-        expect(page, message="После регистрации не произошёл редирект на страницу логина").to_have_url(BASE_URL + "/login")
+        assert WebDriverWait(driver, 10).until(EC.url_to_be(BASE_URL + "/login")), "После регистрации не произошёл редирект на страницу логина"
 
         login_page.login(user["email"], user["password"])
 
-        expect(login_page.header.avatar_button, message="Аватар не появился после авторизации новым пользователем").to_be_visible()
+        assert login_page.header.avatar_button.wait_until_visible(), "Аватар не появился после авторизации"
