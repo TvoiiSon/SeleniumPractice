@@ -1,10 +1,15 @@
+import os
+
 import pytest
 import allure
-from playwright.sync_api import Page, expect
+from selenium import webdriver
 from pages.create_news_page import CreateNewsPage
 from helpers.data_generator import generate_article
+from helpers.network import wait_for_response
 from config import BASE_URL
 from loguru import logger
+
+IMAGE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_data", "images.jpeg"))
 
 class TestCreateNews:
     @allure.epic("NewsPlatform")
@@ -18,12 +23,14 @@ class TestCreateNews:
     def test_correct_create_article(self, go_to_create_news_page: CreateNewsPage):
         article = generate_article()
 
-        with go_to_create_news_page.page.expect_response("**/api/news/*") as response_info:
-            go_to_create_news_page.create_news(**article)
-        response = response_info.value
+        response = wait_for_response(
+            go_to_create_news_page.driver,
+            "**/api/news/*",
+            lambda: go_to_create_news_page.create_news(**article),
+        )
 
         assert response.status == 200, f"Ожидали получить статус 200, а получили {response.status}"
-        expect(go_to_create_news_page.page.get_by_text(article["title"]), message="Ожидали создание новости, но случилась ошибка").to_be_visible()
+        assert go_to_create_news_page.create_button.get_by_text(article["title"], global_search=True, exact=True).wait_until_visible(), "Ожидали создание новости, но случилась ошибка"
 
     @allure.epic("NewsPlatform")
     @allure.feature("Создание новости")
@@ -36,17 +43,17 @@ class TestCreateNews:
     def test_create_article_with_image(self, go_to_create_news_page: CreateNewsPage):
         article = generate_article()
         with allure.step(f"Поиск image_path для новости с Названием: {article['title']} через /api/news"):
-            go_to_create_news_page.create_news(**article, image_path="test_data/images.jpeg")
+            go_to_create_news_page.create_news(**article, image_path=IMAGE_PATH)
 
             logger.info(f"Поиск image_path для новости с Названием: {article['title']} через /api/news")
-            request = go_to_create_news_page.page.request.get("https://archiscope.ru/api/news").json()
+            request = go_to_create_news_page.driver.request.get("https://archiscope.ru/api/news").json()
             image_path = ""
             for item in request["items"]:
                 if item["title"] == article["title"]:
                     image_path = item["image_path"]
 
             logger.info(f"Проверка доступности загруженной картинки: {BASE_URL + image_path}")
-            second_request = go_to_create_news_page.page.request.get(BASE_URL + image_path)
+            second_request = go_to_create_news_page.driver.request.get(BASE_URL + image_path)
             assert second_request.status == 200, f"Ожидали получить статус 200, а получили {second_request.status}"
 
     @allure.epic("NewsPlatform")
@@ -62,9 +69,9 @@ class TestCreateNews:
         article = generate_article()
         article[empty_field] = ""
 
-        go_to_create_news_page.create_news(**article, image_path="test_data/images.jpeg")
+        go_to_create_news_page.create_news(**article, image_path=IMAGE_PATH)
 
-        validate_locator = getattr(go_to_create_news_page, f"{empty_field}_input")
+        validate_locator = getattr(go_to_create_news_page, f"{empty_field}_input").locator
         assert go_to_create_news_page.is_field_required(validate_locator), f"Поле {empty_field} является обязательным для заполнения"
 
     @allure.epic("NewsPlatform")
@@ -80,9 +87,11 @@ class TestCreateNews:
         article = generate_article()
         article[empty_field] = ""
 
-        with go_to_create_news_page.page.expect_response("**/api/news/*") as response_info:
-            go_to_create_news_page.create_news(**article)
-        response = response_info.value
+        response = wait_for_response(
+            go_to_create_news_page.driver,
+            "**/api/news/*",
+            lambda: go_to_create_news_page.create_news(**article),
+        )
 
         assert response.status == 200, f"Ожидали получить статус 200, а получили {response.status}"
-        expect(go_to_create_news_page.page.get_by_text(article["title"]), message="Ожидали создание новости с необязательными пустыми полями, но случилась ошибка").to_be_visible()
+        assert go_to_create_news_page.create_button.get_by_text(article["title"], global_search=True, exact=True).wait_until_visible(), "Ожидали создание новости с необязательными пустыми полями, но случилась ошибка"

@@ -36,6 +36,9 @@ def driver(browser_instance):
         browser_instance.execute_script("window.localStorage.clear();")
         browser_instance.execute_script("window.sessionStorage.clear();")
 
+    browser_instance.network.clear_response_handlers()
+    browser_instance.network.clear_request_handlers()
+
     yield browser_instance
 
     if len(browser_instance.window_handles) > 1:

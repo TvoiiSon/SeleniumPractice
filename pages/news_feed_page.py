@@ -2,6 +2,7 @@ import allure
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
 from pages.base_page import BasePage
 from pages.create_news_page import CreateNewsPage
 from config import BASE_URL
@@ -18,7 +19,7 @@ class NewsFeedPage(BasePage):
         self.register_link = LazyElement(driver, (By.XPATH, "//a[@href='/register']"))
         self.add_news_link = LazyElement(driver, (By.XPATH, "//a[text()='+ Добавить новость']"))
         self.search_input = LazyElement(driver, (By.XPATH, "//input[@placeholder='Поиск...']"))
-        self.clear_search_button = LazyElement(driver, (By.XPATH, "//button[text()='Очистить поиск']"))
+        self.clear_search_button = LazyElement(driver, (By.XPATH, "//button[@aria-label='Очистить поиск']"))
         self.notfound_text = LazyElement(driver, (By.XPATH, "//*[contains(text(), 'Ничего не найдено')]"))
         self.next_page_button = LazyElement(driver, (By.XPATH, "//button[text()='»']"))
         self.prev_page_button = LazyElement(driver, (By.XPATH, "//button[text()='«']"))
@@ -31,6 +32,30 @@ class NewsFeedPage(BasePage):
             lambda d: len(d.find_elements(By.TAG_NAME, "h2")) > 0
         )
         return self.driver.find_elements(By.TAG_NAME, "h2")[0].text
+
+    def get_articles_count(self, timeout: int = 10) -> int:
+        WebDriverWait(self.driver, timeout).until(
+            lambda d: len(d.find_elements(By.TAG_NAME, "h2")) > 0
+        )
+        return len(self.driver.find_elements(By.TAG_NAME, "h2"))
+
+    def wait_until_first_article_changes(self, previous_title: str, timeout: int = 10) -> bool:
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: self.get_first_article_title(timeout=1) != previous_title
+            )
+            return True
+        except TimeoutException:
+            return False
+
+    def wait_until_first_article_is(self, expected_title: str, timeout: int = 10) -> bool:
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: self.get_first_article_title(timeout=1) == expected_title
+            )
+            return True
+        except TimeoutException:
+            return False
 
     @allure.step("Поиск новости с Названием: {query}")
     def search(self, query: str):

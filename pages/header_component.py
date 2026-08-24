@@ -8,6 +8,8 @@ from helpers.lazy_element import LazyElement
 AVATAR_INITIAL_PATTERN = re.compile(r"^[A-ZА-Я]$")
 
 def _find_avatar_button(driver):
+    for element in driver.find_elements(By.XPATH, "//img[@alt='Avatar']"):
+        return element
     for element in driver.find_elements(By.XPATH, "//span"):
         if AVATAR_INITIAL_PATTERN.match(element.text):
             return element
