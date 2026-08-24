@@ -18,7 +18,8 @@ class RegisterPage(BasePage):
         self.phone_input = LazyElement(driver, (By.CSS_SELECTOR, 'input[name="phone"]'))
         self.register_button = LazyElement(driver, (By.XPATH, "//button[text()='Зарегистрироваться']"))
         self.to_login_button = LazyElement(driver, (By.XPATH, "//a[@href='/login']"))
-
+        self.error_message = LazyElement(driver, (By.CSS_SELECTOR, ".alert.alert-error"))
+        
     def open(self):
         self.driver.get(self.URL)
 

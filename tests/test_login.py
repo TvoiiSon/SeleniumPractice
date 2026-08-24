@@ -6,7 +6,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from loguru import logger
 from config import BASE_URL
 from pages.login_page import LoginPage
-from pages.register_page import RegisterPage
 from pages.header_component import HeaderComponent
 from models.user import User, UserLoginAPIResponse
 

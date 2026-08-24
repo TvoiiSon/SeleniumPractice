@@ -3,6 +3,7 @@ import allure
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from loguru import logger
 from config import BASE_URL
 from helpers.data_generator import generate_user
@@ -18,7 +19,9 @@ logger.add("test_run.log", rotation="10MB", level="DEBUG")
 
 @pytest.fixture(scope="session")
 def browser_instance():
-    driver = webdriver.Firefox()
+    opts = FirefoxOptions()
+    opts.web_socket_url = True
+    driver = webdriver.Firefox(options=opts)
     yield driver
     driver.quit()
 
