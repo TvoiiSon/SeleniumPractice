@@ -1,9 +1,14 @@
+import json
+
 import pytest
 import allure
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pages.article_page import ArticlePage
+from helpers.lazy_element import LazyElement
+from helpers.network import mock_response
 from models.article import Comment
 from helpers.data_generator import generate_comment
 from loguru import logger
@@ -77,3 +82,45 @@ class TestArticle():
             logger.info(f"Запрос комментариев несуществующей статьи id={article_id} — ожидаем 404")
             request = driver.request.get(f"https://archiscope.ru/api/news/{article_id}/comments")
             assert request.status == 404, f"Ожидали получить статус 404, получили {request.status}"
+
+    @allure.epic("NewsPlatform")
+    @allure.feature("Детальная страница новости")
+    @allure.story("Редактирование новости (демонстрация мока)")
+    @allure.description("В приложении нет функциональности редактирования статьи — ни UI (кнопок/форм редактирования нет даже для автора статьи), ни API (PUT/PATCH на /api/news/{id} возвращают 405 Method Not Allowed). Тест демонстрирует технику мокирования сети: подменяет ответ GET /api/news/383, как будто статья уже была отредактирована, и проверяет, что страница корректно отображает новые данные")
+    @allure.severity(allure.severity_level.MINOR)
+    @allure.tag("Мок")
+    @pytest.mark.mock
+    def test_edit_article_mock(self, driver: webdriver.Firefox):
+        edited_title = "Заголовок после редактирования (мок)"
+        body = json.dumps({
+            "id": 383,
+            "title": edited_title,
+            "subtitle": "Подзаголовок после редактирования (мок)",
+            "text": "Текст после редактирования (мок)",
+            "image_path": None,
+            "author": {
+                "email": "mock@example.com", "first_name": "Мок", "last_name": "Автор",
+                "phone": "+70000000000", "id": 1, "photo_path": None,
+                "created_at": "2026-01-01T00:00:00",
+            },
+            "tags": [], "created_at": "2026-01-01T00:00:00", "comments_count": 0,
+        })
+        mock_response(driver, "**/api/news/383", 200, body)
+
+        driver.get("https://archiscope.ru/news/383")
+
+        assert LazyElement(driver, (By.XPATH, f"//*[text()='{edited_title}']")).wait_until_visible(), "Ожидали, что страница статьи отобразит замоканные (отредактированные) данные"
+
+    @allure.epic("NewsPlatform")
+    @allure.feature("Детальная страница новости")
+    @allure.story("Удаление новости (демонстрация мока)")
+    @allure.description("В приложении нет функциональности удаления статьи — ни UI, ни API (DELETE на /api/news/{id} возвращает 405 Method Not Allowed). Тест демонстрирует технику мокирования сети: подменяет ответ GET /api/news/383 статусом 404, как будто статья была удалена, и проверяет, что страница показывает состояние 'Новость не найдена'")
+    @allure.severity(allure.severity_level.MINOR)
+    @allure.tag("Мок")
+    @pytest.mark.mock
+    def test_delete_article_mock(self, driver: webdriver.Firefox):
+        mock_response(driver, "**/api/news/383**", 404, '{"detail": "Not Found"}')
+
+        driver.get("https://archiscope.ru/news/383")
+
+        assert LazyElement(driver, (By.XPATH, "//*[text()='Новость не найдена']")).wait_until_visible(), "Ожидали состояние 'Новость не найдена' после мока удаления статьи"
